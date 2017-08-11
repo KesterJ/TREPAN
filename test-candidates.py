@@ -1,22 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 25 14:52:59 2017
+Created on Fri Aug 11 20:56:32 2017
 
 @author: Kester
 """
-###Draw instances
-def draw_instance():
+
+import numpy as np
 
 
-
-def draw_sample(features, samples):
-    """
-    A function that takes a set of examples, and draws samples if there are
-    fewer than the allowed minimum size for splitting on at a node. (e.g. if
-    we want 10,000 examples, and have 9,100, we will draw 900)
-    """    
-    
-###Making M OF N tests
 def make_candidate_tests(samples, labels):
     """
     A function that should take all features, all samples, and return the
@@ -34,7 +25,7 @@ def make_candidate_tests(samples, labels):
         breakpoints = []
         sortfeat = sortedcombined[:, feature]
         sortlabel = sortedcombined[:, -1]
-        for point in range(sortfeat-1):
+        for point in range(sortfeat.shape[0]-1):
             #Check if different classes, find midpoint if so
             if sortlabel[point] != sortlabel[point+1]:
                 midpoint = (sortfeat[point]+sortfeat[point+1])/2
@@ -44,28 +35,20 @@ def make_candidate_tests(samples, labels):
         #Add list of breakpoints to feature dict
         bpdict[feature] = breakpoints
     return bpdict
-    
-    
-def make_mofn_tests(besttest, C, samples):
-    """
-    Finds the best m-of-n test, using a beam width of 2.
-    
-    NOTES:
-    -NEEDS TO KNOW HOW TO COLLAPSE TESTS WHEN TWO REDUNDANT THINGS ARE
-    PRESENT e.g. 2-of {y, z, x, ¬x} -> 1-of {y, z}
-    -NEEDS TO KNOW WHICH TESTS WERE ALREADY USED ON THIS BRANCH, AND NOT USE
-    THOSE FEATURES AGAIN
-    -NEEDS TO AVOID USING TWO TESTS ON THE SAME LITERAL e.g. x > 0.5 and x > 0.7
-    -NEEDS TO TEST USING BOTH x and ¬x AS THE SEED FOR BEAM SEARCH
-    """
 
-def construct_test(features, samples):
-    """
-    Takes features and samples, and find the best m-of-n test to split on.
-    """
-    #make_candidate_tests(features, samples)
-    #bestgain = 0;
-    #for c in C:
-        #if gain(c) > bestgain:
-            #besttest = c
-    #make_mofn_tests(besttest, C, samples)
+test1 = np.array([[1, 1, 1, 1], [2, 5, 2, 2], [3, 3, 6, 0], [4, 4, 4, 100],
+                  [5, 5, 2, 5]])
+labels1 = np.array([0, 0, 1, 1, 1])
+
+test1dict = make_candidate_tests(test1, labels1)
+
+test2 = np.array([[1, 1], [1, 2], [1,3], [1,3], [1,5]])
+labels2 = np.array([0,0,0,1,1])
+
+test2dict = make_candidate_tests(test2, labels2)
+
+test3 = np.array([[1, 1, 1, 1], [2, 5, 2, 2], [3, 3, 6, 0], [4, 4, 4, 100],
+                  [5, 5, 2, 5]])
+labels3 = np.array([0, 0, 0, 0, 0])
+
+test3dict = make_candidate_tests(test3, labels3)
