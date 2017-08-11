@@ -45,6 +45,37 @@ def make_candidate_tests(samples, labels):
         bpdict[feature] = breakpoints
     return bpdict
     
+
+def entropy(labels):
+    """
+    Takes a list of labels, and calculates the entropy. Currently assumes binary
+    labels of 0 and 1 - this would need to be altered if multiclass data has
+    to be used.
+    """
+    prob = sum(labels)/len(labels)
+    ent = -prob*log(prob) - (1-prob)*log(1-prob)
+    return ent
+
+
+def info_gain(feature, threshold, samples, labels):
+    """
+    Takes a feature and a threshold, examples and their
+    labels, and find the best feature and breakpoint to split on to maximise
+    information gain.
+    Assumes only two classes. Would need to be altered if more are required.
+    """
+    #Get initial entropy
+    origent = entropy(labels)
+    #Get two halves of threshold
+    split1 = samples[:, feature]>=threshold
+    split2 = np.invert(split1)
+    #Get entropy after split (remembering to weight by no of examples in each
+    #half of split)
+    afterent = (entropy(labels[split1])*(sum(split1)/len(labels)) + 
+                entropy(labels[split2])*(sum(split2)/len(labels)))
+    gain = origent - afterent
+    return gain
+
     
 def make_mofn_tests(besttest, C, samples):
     """
