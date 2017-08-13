@@ -53,7 +53,7 @@ def entropy(labels):
     to be used.
     """
     prob = sum(labels)/len(labels)
-    ent = -prob*log(prob) - (1-prob)*log(1-prob)
+    ent = -prob*np.log2(prob) - (1-prob)*np.log2(1-prob)
     return ent
 
 
