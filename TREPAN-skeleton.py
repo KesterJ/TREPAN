@@ -120,6 +120,18 @@ def expand_mofn_test(test, feature, threshold, greater, incrementm):
     Constructs and returns a new m-of-n test using the passed test and 
     other parameters.
     """
+    #Check for feature redundancy
+    for feat in test[1]:
+        if feature==feat[0]:
+            if greater==feat[2]:
+                #Just return the unmodified existing test if we'd add a threshold
+                #with same feature and sign
+                return test
+            else:
+                #Also just return the same if the two tests would overlap
+                if (greater and feature <= feat[1]) or (not greater and feature >= feat[1]):
+                    return test
+    #If we didn't find redundancy, actually create the test
     if incrementm:
         newm = test[0]+1
     else:
