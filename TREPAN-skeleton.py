@@ -52,8 +52,16 @@ def entropy(labels):
     labels of 0 and 1 - this would need to be altered if multiclass data has
     to be used.
     """
+    #Check there are any labels to work with
+    if len(labels)==0:
+        return 0
     prob = sum(labels)/len(labels)
-    ent = -prob*np.log2(prob) - (1-prob)*np.log2(1-prob)
+    #Deal with the case where one class isn't present (would return nan without
+    #this exception)
+    if prob in [0,1]:
+        ent = 0
+    else:
+        ent = -prob*np.log2(prob) - (1-prob)*np.log2(1-prob)
     return ent
 
 
@@ -91,7 +99,7 @@ def mofn_info_gain(mofntest, samples, labels):
     """
     #Unpack the tests structure
     m = mofntest[0]
-    septests = mofntest[1]
+    septests = mofntest[1]    
     #List comprehension to generate a boolean index that tells us which samples
     #passed the test.
     splittest = np.array([samples[:,septest[0]]>=septest[1] if septest[2] else 
@@ -99,7 +107,13 @@ def mofn_info_gain(mofntest, samples, labels):
     #Now check whether the number of tests passed per sample is higher than m
     split1 = sum(splittest)>=m
     split2 = np.invert(split1)
-    ###TODO: Finish this
+    #Calculate original entropy
+    origent = entropy(labels)
+    #Get entropy of split
+    afterent = (entropy(labels[split1])*(sum(split1)/len(labels)) + 
+                entropy(labels[split2])*(sum(split2)/len(labels)))
+    gain = origent - afterent
+    return gain
     
 def make_mofn_tests(besttest, tests, samples, labels):
     """
@@ -115,7 +129,7 @@ def make_mofn_tests(besttest, tests, samples, labels):
     """
     #Initialise beam with best test and its negation
     initgain =  binary_info_gain(besttest.feature, besttest.threshold, samples, labels)
-    beam = [(besttest, '<'), (besttest, '>')]
+    beam = [(besttest, False), (besttest, True)]
     beamgains = [initgain, initgain]
     #Initialise current beam (which will be modified within the loops)
     currentbeam = beam
@@ -131,12 +145,12 @@ def make_mofn_tests(besttest, tests, samples, labels):
                 #Loop over the thresholds for the feature
                 for threshold in tests[feature]:
                     #Loop over greater than/lesser than tests
-                    for sign in ['<','>']:
+                    for greater in [True, False]:
                         #Loop over m+1-of-n+1 and m-of-n+1 tests
                         for operator in [mplusnplus, nplus]:
                             #Get info gain and compare it
                             gain = mofn_info_gain(operator, feature, threshold,
-                                           sign, samples, labels)
+                                           greater, samples, labels)
                             #Compare gains
                             if gain > min(currentgains):
                                 #Replace worst in beam if gain better than worst in beam
