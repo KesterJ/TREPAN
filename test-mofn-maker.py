@@ -1,50 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 25 14:52:59 2017
+Created on Wed Aug 16 23:46:34 2017
 
 @author: Kester
 """
-###Draw instances
-def draw_instance():
+import numpy as np
 
-
-
-def draw_sample(features, samples):
-    """
-    A function that takes a set of examples, and draws samples if there are
-    fewer than the allowed minimum size for splitting on at a node. (e.g. if
-    we want 10,000 examples, and have 9,100, we will draw 900)
-    """    
-    
-###Making M OF N tests
-def make_candidate_tests(samples, labels):
-    """
-    A function that should take all features, all samples, and return the
-    the possible breakpoints for each feature. These are the midpoints between
-    any two samples that do not have the same label.
-    """
-    #Combine samples and labels
-    combined = np.c_[samples, labels]
-    #Create empty dictionary to store features and their breakpoints
-    bpdict = {}
-    #Loop over each feature (assumes features are columns and samples are rows)
-    for feature in range(samples.shape[1]):
-        #Sort everything on the current feature
-        sortedcombined = combined[combined[:,feature].argsort()]
-        breakpoints = []
-        sortfeat = sortedcombined[:, feature]
-        sortlabel = sortedcombined[:, -1]
-        for point in range(sortfeat-1):
-            #Check if different classes, find midpoint if so
-            if sortlabel[point] != sortlabel[point+1]:
-                midpoint = (sortfeat[point]+sortfeat[point+1])/2
-                #Check if already in list and add it if not
-                if midpoint not in breakpoints:
-                    breakpoints.append(midpoint)
-        #Add list of breakpoints to feature dict
-        bpdict[feature] = breakpoints
-    return bpdict
-    
 
 def entropy(labels):
     """
@@ -83,6 +44,7 @@ def binary_info_gain(feature, threshold, samples, labels):
                 entropy(labels[split2])*(sum(split2)/len(labels)))
     gain = origent - afterent
     return gain
+
 
 def mofn_info_gain(mofntest, samples, labels):
     """
@@ -190,16 +152,11 @@ def make_mofn_tests(besttest, tests, samples, labels):
         beamgains = list(currentgains)
     #Return the best test in beam
     return beam[np.argmax(beamgains)]
-    
-def construct_test(samples, labels):
-    """
-    Takes samples and labels, and find the best m-of-n test to split on.
-    """
-    tests = make_candidate_tests(samples, labels)
-    bestgain = 0;
-    for test in tests:
-        if binary_info_gain(test) > bestgain:
-        ###TODO: Write the binary_info_gain call above correctly    
-            bestgain = info_gain(test)
-            besttest = test
-    make_mofn_tests(besttest, tests, samples, labels)
+
+testarr = np.array([[1,1,1], [1,1,2], [1,2,1], [2,1,1], [1,2,2], [2,1,2], [2,2,1], [2,2,2]])
+testlabels = np.array([0,1,0,0,1,0,0,0])
+
+besttest = [2, 1.5]
+tests = {0: [0.5, 1.5, 2.5], 1: [0.5, 1.5, 2.5], 2: [0.5, 1.5, 2.5]}
+
+mofn = make_mofn_tests(besttest, tests, testarr, testlabels)
