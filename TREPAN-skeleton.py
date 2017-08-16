@@ -114,6 +114,21 @@ def mofn_info_gain(mofntest, samples, labels):
                 entropy(labels[split2])*(sum(split2)/len(labels)))
     gain = origent - afterent
     return gain
+
+def expand_mofn_test(test, feature, threshold, greater, incrementm):
+    """
+    Constructs and returns a new m-of-n test using the passed test and 
+    other parameters.
+    """
+    if incrementm:
+        newm = test[0]+1
+    else:
+        newm = test[0]
+    newfeats = list(test[1])
+    newfeats.append((feature, threshold, greater))
+    newtest = (newm, newfeats)
+    return newtest
+
     
 def make_mofn_tests(besttest, tests, samples, labels):
     """
@@ -139,7 +154,7 @@ def make_mofn_tests(besttest, tests, samples, labels):
     while beamchanged:
         beamchanged = False
         #Loop over the current best m-of-n tests in beam
-        for item in beam:
+        for test in beam:
             #Loop over the single-features in candidate tests dict
             for feature in tests:
                 #Loop over the thresholds for the feature
@@ -147,14 +162,15 @@ def make_mofn_tests(besttest, tests, samples, labels):
                     #Loop over greater than/lesser than tests
                     for greater in [True, False]:
                         #Loop over m+1-of-n+1 and m-of-n+1 tests
-                        for operator in [mplusnplus, nplus]:
+                        for incrementm in [True, False]:
+                            #Add selected feature+threshold to to current test
+                            newtest = expand_mofn_test(test, feature, threshold, greater, incrementm)
                             #Get info gain and compare it
-                            gain = mofn_info_gain(operator, feature, threshold,
-                                           greater, samples, labels)
+                            gain = mofn_info_gain(newtest, samples, labels)
                             #Compare gains
                             if gain > min(currentgains):
                                 #Replace worst in beam if gain better than worst in beam
-                                currentbeam[np.argmin(currentgains)] = (feature, threshold, sign)
+                                currentbeam[np.argmin(currentgains)] = newtest
                                 currentgains[np.argmin(currentgains)] = gain
                                 beamchanged = True
         #Set new tests in beam and associated gains
