@@ -1,21 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Jul 25 14:52:59 2017
+Created on Thu Aug 17 20:35:53 2017
 
 @author: Kester
 """
-###Draw instances
-def draw_instance():
-
-
-
-def draw_sample(features, samples):
-    """
-    A function that takes a set of examples, and draws samples if there are
-    fewer than the allowed minimum size for splitting on at a node. (e.g. if
-    we want 10,000 examples, and have 9,100, we will draw 900)
-    """    
-    
+import numpy as np    
+import pandas as pd
 
 ###Making M OF N tests
 def make_candidate_tests(samples, labels):
@@ -38,7 +28,7 @@ def make_candidate_tests(samples, labels):
             labels2 = labels[samples[:,feature]==values[value+1]]
             l1unique = list(np.unique(labels1))
             l2unique = list(np.unique(labels2))
-            if l1unique!=l2unique or (l1unique==l2unique==[0,1]):
+            if l1unique!=l2unique or (l1unique==l2unique==[0, 1]):
                 midpoint = (values[value]+values[value+1])/2
                 breakpoints.append(midpoint)
         #Add list of breakpoints to feature dict
@@ -162,8 +152,11 @@ def make_mofn_tests(besttest, tests, samples, labels):
     currentbeam = list(beam)
     currentgains = list(beamgains)
     beamchanged = True
+    n = 1
     #Set up loop to repeat until beam isn't changed
     while beamchanged:
+        print('Test of size %d...'%n)
+        n = n+1
         beamchanged = False
         #Loop over the current best m-of-n tests in beam
         for test in beam:
@@ -197,6 +190,7 @@ def construct_test(samples, labels):
     """
     tests = make_candidate_tests(samples, labels)
     bestgain = 0;
+    print('Finding best test...')
     for test in tests:
         for threshold in tests[test]:
             testgain = binary_info_gain(test, threshold, samples, labels)
@@ -204,4 +198,42 @@ def construct_test(samples, labels):
             ###TODO: Write the binary_info_gain call above correctly    
                 bestgain = testgain
                 besttest = (test, threshold)
-    make_mofn_tests(besttest, tests, samples, labels)
+    print('Done.')
+    mofntest = make_mofn_tests(besttest, tests, samples, labels)
+    return mofntest
+
+
+###LOAD DATA
+data = pd.read_csv('../Data from Transparency Project/analytic.csv')
+
+###SPLIT OUT
+features = data.drop(['USERID', 'RG_case', 'ValidationSet', 'filter_$', 'RiskGroup1',
+                      'first_active_product1_31days', 'first_active_product2_31days',
+                      'first_active_product4_31days', 'RiskGroup2', 'RiskGroupCombined',
+                      'first_active_games_31days', 'first_active_poker_31days',
+                      'mostFrequentGame', 'playedFO', 'playedLA', 'playedPO',
+                      'playedCA', 'playedGA', 'gender'], axis = 1)
+labels = data['RG_case']
+valsplit = data['ValidationSet']
+featnum = features.shape[1]
+featnames = features.columns.values.tolist()
+
+trainfeats = features[valsplit==0].as_matrix()
+trainlabels = labels[valsplit==0].as_matrix()
+testfeats = features[valsplit==1].as_matrix()
+testlabels = labels[valsplit==1].as_matrix()
+
+###CLEAN BLANK SPACES
+trainfeats[np.where(trainfeats == ' ')] = '0'
+trainlabels[np.where(trainlabels == ' ')] = '0'
+testfeats[np.where(testfeats == ' ')] = '0'
+testlabels[np.where(testlabels == ' ')] = '0'
+
+###CONVERT TO FLOAT
+trainfeats = trainfeats.astype(np.float32)
+trainlabels = trainlabels.astype(np.int)
+testfeats = testfeats.astype(np.float32)
+testlabels = testlabels.astype(np.int)
+
+###TEST!!
+mntest = construct_test(testfeats[1:200,:], testlabels[1:200])
