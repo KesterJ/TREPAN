@@ -4,18 +4,34 @@ Created on Tue Jul 25 14:52:59 2017
 
 @author: Kester
 """
+
+import numpy as np
+from scipy import stats
+
 ###Draw instances
-def draw_instance():
+def draw_instances(number, constraints):
 
 
 
-def draw_sample(features, samples):
+def draw_sample(samples, total, significance):
     """
     A function that takes a set of examples, and draws samples if there are
     fewer than the allowed minimum size for splitting on at a node. (e.g. if
     we want 10,000 examples, and have 9,100, we will draw 900)
-    """    
-    
+    """
+    samplesneeded = total - samples.shape[0]
+    numfeats = samples.shape[1]
+    if samplesneeded > 0:
+        kernels = np.zeros((numfeats))
+        for feat in range(numfeats):
+            #Check if distribution for feature is diff from parent node
+            if stats.ks_2samp(samples[:,feat], parentsamples[:,feat])[1] <= significance:
+                kernels[feat] = stats.gaussian_kde(samples[:,feat])
+            else:
+                kernels[feat] = stats.gaussian_kde(parentsamples[:,feat])
+        newsamples = draw_instances(samplesneeded, kernels, constraints)
+        allsamples = np.r_['0,2',samples,newsamples]]
+    return newsamples
 
 ###Making M OF N tests
 def make_candidate_tests(samples, labels):
@@ -38,9 +54,13 @@ def make_candidate_tests(samples, labels):
             labels2 = labels[samples[:,feature]==values[value+1]]
             l1unique = list(np.unique(labels1))
             l2unique = list(np.unique(labels2))
-            if l1unique!=l2unique or (l1unique==l2unique==[0,1]):
+            if l1unique!=l2unique or (l1unique==l2unique==[0, 1]):
                 midpoint = (values[value]+values[value+1])/2
                 breakpoints.append(midpoint)
+        #Trim list of breakpoints to 20 if too long
+        if len(breakpoints)>20:
+            idx = np.rint(np.linspace(0,len(breakpoints)-1, num =20)).astype(int)
+            breakpoints = [breakpoints[i] for i in idx]
         #Add list of breakpoints to feature dict
         bpdict[feature] = breakpoints
     return bpdict
@@ -129,7 +149,7 @@ def expand_mofn_test(test, feature, threshold, greater, incrementm):
                 return test
             else:
                 #Also just return the same if the two tests would overlap
-                if (greater and feature <= feat[1]) or (not greater and feature >= feat[1]):
+                if (greater and threshold <= feat[1]) or (not greater and threshold >= feat[1]):
                     return test
     #If we didn't find redundancy, actually create the test
     if incrementm:
@@ -142,9 +162,11 @@ def expand_mofn_test(test, feature, threshold, greater, incrementm):
     return newtest
 
     
-def make_mofn_tests(besttest, tests, samples, labels):
+def make_mofn_tests(besttest, tests, samples, labels, improvement):
     """
     Finds the best m-of-n test, using a beam width of 2.
+    improvement is the percentage by which gain should improve on addition of a
+    new test. (Can be from 1.0+)
     
     NOTES:
     -NEEDS TO KNOW HOW TO COLLAPSE TESTS WHEN TWO REDUNDANT THINGS ARE
@@ -162,8 +184,11 @@ def make_mofn_tests(besttest, tests, samples, labels):
     currentbeam = list(beam)
     currentgains = list(beamgains)
     beamchanged = True
+    n = 1
     #Set up loop to repeat until beam isn't changed
     while beamchanged:
+        print('Test of size %d...'%n)
+        n = n+1
         beamchanged = False
         #Loop over the current best m-of-n tests in beam
         for test in beam:
@@ -180,7 +205,7 @@ def make_mofn_tests(besttest, tests, samples, labels):
                             #Get info gain and compare it
                             gain = mofn_info_gain(newtest, samples, labels)
                             #Compare gains
-                            if gain > min(currentgains):
+                            if gain > improvement*min(currentgains):
                                 #Replace worst in beam if gain better than worst in beam
                                 currentbeam[np.argmin(currentgains)] = newtest
                                 currentgains[np.argmin(currentgains)] = gain
@@ -197,6 +222,7 @@ def construct_test(samples, labels):
     """
     tests = make_candidate_tests(samples, labels)
     bestgain = 0;
+    print('Finding best test...')
     for test in tests:
         for threshold in tests[test]:
             testgain = binary_info_gain(test, threshold, samples, labels)
@@ -204,4 +230,6 @@ def construct_test(samples, labels):
             ###TODO: Write the binary_info_gain call above correctly    
                 bestgain = testgain
                 besttest = (test, threshold)
-    make_mofn_tests(besttest, tests, samples, labels)
+    print('Done.')
+    mofntest = make_mofn_tests(besttest, tests, samples, labels)
+    return mofntest

@@ -7,31 +7,28 @@ Created on Fri Aug 11 20:56:32 2017
 
 import numpy as np
 
-
+###Making M OF N tests
 def make_candidate_tests(samples, labels):
     """
     A function that should take all features, all samples, and return the
     the possible breakpoints for each feature. These are the midpoints between
     any two samples that do not have the same label.
     """
-    #Combine samples and labels
-    combined = np.c_[samples, labels]
     #Create empty dictionary to store features and their breakpoints
     bpdict = {}
     #Loop over each feature (assumes features are columns and samples are rows)
     for feature in range(samples.shape[1]):
-        #Sort everything on the current feature
-        sortedcombined = combined[combined[:,feature].argsort()]
+        #Get unique values for feature
+        values = np.unique(samples[:,feature])
         breakpoints = []
-        sortfeat = sortedcombined[:, feature]
-        sortlabel = sortedcombined[:, -1]
-        for point in range(sortfeat.shape[0]-1):
-            #Check if different classes, find midpoint if so
-            if sortlabel[point] != sortlabel[point+1]:
-                midpoint = (sortfeat[point]+sortfeat[point+1])/2
-                #Check if already in list and add it if not
-                if midpoint not in breakpoints:
-                    breakpoints.append(midpoint)
+        #Loop over values and check if diff classes between values
+        for value in range(len(values)-1):
+            #Check if different classes in associated labels, find midpoint if so
+            labels1 = labels[samples[:,feature]==values[value]]
+            labels2 = labels[samples[:,feature]==values[value+1]]
+            if list(np.unique(labels1))!=list(np.unique(labels2)):
+                midpoint = (values[value]+values[value+1])/2
+                breakpoints.append(midpoint)
         #Add list of breakpoints to feature dict
         bpdict[feature] = breakpoints
     return bpdict

@@ -31,6 +31,10 @@ def make_candidate_tests(samples, labels):
             if l1unique!=l2unique or (l1unique==l2unique==[0, 1]):
                 midpoint = (values[value]+values[value+1])/2
                 breakpoints.append(midpoint)
+        #Trim list of breakpoints to 20 if too long
+        if len(breakpoints)>20:
+            idx = np.rint(np.linspace(0,len(breakpoints)-1, num =20)).astype(int)
+            breakpoints = [breakpoints[i] for i in idx]
         #Add list of breakpoints to feature dict
         bpdict[feature] = breakpoints
     return bpdict
@@ -119,7 +123,7 @@ def expand_mofn_test(test, feature, threshold, greater, incrementm):
                 return test
             else:
                 #Also just return the same if the two tests would overlap
-                if (greater and feature <= feat[1]) or (not greater and feature >= feat[1]):
+                if (greater and threshold <= feat[1]) or (not greater and threshold >= feat[1]):
                     return test
     #If we didn't find redundancy, actually create the test
     if incrementm:
@@ -132,9 +136,11 @@ def expand_mofn_test(test, feature, threshold, greater, incrementm):
     return newtest
 
     
-def make_mofn_tests(besttest, tests, samples, labels):
+def make_mofn_tests(besttest, tests, samples, labels, improvement):
     """
     Finds the best m-of-n test, using a beam width of 2.
+    improvement is the percentage by which gain should improve on addition of a
+    new test. (Can be from 1.0+)
     
     NOTES:
     -NEEDS TO KNOW HOW TO COLLAPSE TESTS WHEN TWO REDUNDANT THINGS ARE
@@ -173,7 +179,7 @@ def make_mofn_tests(besttest, tests, samples, labels):
                             #Get info gain and compare it
                             gain = mofn_info_gain(newtest, samples, labels)
                             #Compare gains
-                            if gain > min(currentgains):
+                            if gain > improvement*min(currentgains):
                                 #Replace worst in beam if gain better than worst in beam
                                 currentbeam[np.argmin(currentgains)] = newtest
                                 currentgains[np.argmin(currentgains)] = gain
@@ -204,7 +210,7 @@ def construct_test(samples, labels):
 
 
 ###LOAD DATA
-data = pd.read_csv('../Data from Transparency Project/analytic.csv')
+data = pd.read_csv('../../Data from Transparency Project/analytic.csv')
 
 ###SPLIT OUT
 features = data.drop(['USERID', 'RG_case', 'ValidationSet', 'filter_$', 'RiskGroup1',
@@ -236,4 +242,4 @@ testfeats = testfeats.astype(np.float32)
 testlabels = testlabels.astype(np.int)
 
 ###TEST!!
-mntest = construct_test(testfeats[1:200,:], testlabels[1:200])
+mntest = construct_test(testfeats, testlabels)
