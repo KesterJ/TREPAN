@@ -8,12 +8,47 @@ Created on Tue Jul 25 14:52:59 2017
 import numpy as np
 from scipy import stats
 
+
+def draw_instance(kernels, condslist):
+    """
+    Needs to take a list of kernels and conditional probabilities for m-of-n
+    tests, and generate an instance drawn from the kernels that fulfils the
+    tests.
+    """
+
+
 ###Draw instances
-def draw_instances(number, constraints):
+def draw_instances(number, kernels, constraints):
+    """
+    Takes a number of samples to draw, a list of constraints (which consists
+    of a list of m-of-n tests that should have been satisfied to reach this
+    point, and a boolean variable saying whether the test should have been
+    passed or failed) and a set of kernels to draw from, and produces a set
+    of samples of that number using the kernels and constraints.
+    """
+    condslist = []
+    #Loop over tests for each node so far
+    for test in constraints:
+        #Loop over separate ns in the test
+        probs = []
+        probfeats = []
+        for n in test[1]:
+            feature = n[0]
+            threshold = n[1]
+            greater = n[2]
+            get conditional_prob from kernels[feature] and (threshold, greater)
+            probs.append(conditional_prob)
+            probfeats.append(feature)
+        probs = probs/sum(probs)
+        testconds = (test[0], probfeats, probs)
+        condslist.append(testconds)
+    instances = [draw_instance(kernels, condslist) for i in range(number)]
+    
+    ###!TODO: Rem to deal with the case where there are two tests on the same
+    ###feature!!!
 
 
-
-def draw_sample(samples, total, significance):
+def draw_sample(samples, total, significance, constraints):
     """
     A function that takes a set of examples, and draws samples if there are
     fewer than the allowed minimum size for splitting on at a node. (e.g. if
@@ -25,7 +60,8 @@ def draw_sample(samples, total, significance):
         kernels = np.zeros((numfeats))
         for feat in range(numfeats):
             #Check if distribution for feature is diff from parent node
-            if stats.ks_2samp(samples[:,feat], parentsamples[:,feat])[1] <= significance:
+            #Including Bonferroni correction
+            if stats.ks_2samp(samples[:,feat], parentsamples[:,feat])[1] <= significance/numfeats:
                 kernels[feat] = stats.gaussian_kde(samples[:,feat])
             else:
                 kernels[feat] = stats.gaussian_kde(parentsamples[:,feat])
