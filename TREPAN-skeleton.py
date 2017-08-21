@@ -54,26 +54,58 @@ def draw_instances(number, kernels, constraints):
     passed or failed) and a set of kernels to draw from, and produces a set
     of samples of that number using the kernels and constraints.
     """
-    condslist = []
+    probslist = []
+    feattests = {}
     #Loop over tests for each node so far
     for test in constraints:
+        probs = np.array([])
+        probfeats = np.array([])
+        m = test[0]
+        n = len(test[1])
+        #Check whether the test should have been passed
+        if test[2]:
         #Loop over separate ns in the test
-        probs = []
-        probfeats = []
-        for n in test[1]:
-            feature = n[0]
-            threshold = n[1]
-            greater = n[2]
-            get conditional_prob from kernels[feature] and (threshold, greater)
-            probs.append(conditional_prob)
-            probfeats.append(feature)
-        probs = probs/sum(probs)
-        testconds = (test[0], probfeats, probs)
-        condslist.append(testconds)
-    instances = np.array([draw_instance(kernels, condslist, feattests) for i in range(number)])
+            for feattest in test[1]:
+                feature = feattest[0]
+                threshold = feattest[1]
+                greater = feattest[2]
+                #Get conditional probability of passing test by integrating over kernel
+                if greater:
+                    conditional_prob = kernels[feature].integrate_box_1d(threshold, np.inf)
+                else:
+                    conditional_prob = kernels[feature].integrate_box_1d(-np.inf, threshold)
+                probs = np.append(probs, conditional_prob)
+                probfeats = np.append(probfeats,feature)
+                feattests[feature] = (threshold, greater)
+            print(probs)
+            probs = probs/sum(probs)
+            testprobs = (m, probfeats, probs)
+            probslist.append(testprobs)
+        #In case the test should be failed, reverse the criteria
+        else:
+            for feattest in test[1]:
+                feature = feattest[0]
+                threshold = feattest[1]
+                greater = not feattest[2]
+                #Get conditional probability of passing test by integrating over kernel
+                if greater:
+                    conditional_prob = kernels[feature].integrate_box_1d(threshold, np.inf)
+                else:
+                    conditional_prob = kernels[feature].integrate_box_1d(-np.inf, threshold)
+                probs = np.append(probs, conditional_prob)
+                probfeats = np.append(probfeats,feature)
+                feattests[feature] = (threshold, greater)
+            print(probs)
+            probs = probs/sum(probs)
+            #We're doing reverse test, so need one more than n-m tests to be
+            #passed to make sure m-of-n test is failed
+            testprobs = (n+1-m, probfeats, probs)
+            probslist.append(testprobs)
+    print(probslist)
+    print(feattests)
+    instances = np.array([draw_instance(kernels, probslist, feattests) for i in range(number)])
     return instances
-    ###!TODO: Rem to deal with the case where there are two tests on the same
-    ###feature!!!
+    
 
 
 def draw_sample(samples, total, significance, constraints):

@@ -49,7 +49,11 @@ testdata = np.array([[0,1,2,3,4], [1,1,2,1,1], [0,2,4,6,8], [5,5,1,10,4],
                      [10,11,12,13,14]]).transpose()
 testkerns = [stats.gaussian_kde(testdata[:,i]) for i in range(5)]
 
-condslist = [(2, [2,3], [0.3,0.7])]
-feattests = {1: (3, False), 2: (5, True), 3: (7, False)}
+condslist = [(1, [2,3], [0.3,0.7])]
+feattests = {0: (1, True), 1: (2, False), 2: (5, True), 3: (7, False), 4: (14, False)}
 
 testinst = draw_instance(testkerns, condslist, feattests)
+testinsts = np.array([draw_instance(testkerns, condslist, feattests) for i in range(100)])
+
+condslist2 = [(1, [2,3], [0.3,0.7]), (2, [0,1,4], [0.3,0.6,0.1])]
+testinst2 = draw_instance(testkerns, condslist2, feattests)
