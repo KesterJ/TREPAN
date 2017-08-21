@@ -8,14 +8,42 @@ Created on Tue Jul 25 14:52:59 2017
 import numpy as np
 from scipy import stats
 
+def passes_test(resample, test):
+    """
+    Take a value and a simple greater/less than test, and chceks if the test is
+    passed. Returns boolean.
+    """
+    passes = False
+    if (test[1] and resample >= test[0]) or (not test[1] and resample < test[0]):
+        passes = True
+    return passes
 
-def draw_instance(kernels, condslist):
+
+def draw_instance(kernels, condslist, feattests):
     """
     Needs to take a list of kernels and conditional probabilities for m-of-n
     tests, and generate an instance drawn from the kernels that fulfils the
-    tests.
+    tests. Feattests is a dictionary of tests keyed by feature.
     """
-
+    featnum = len(kernels)
+    instance = np.zeros(featnum)
+    constrainedfeatures = []
+    for conds in condslist:
+        #Choose weighted set of features from m-of-n test
+        choices = np.random.choice(conds[1], p=conds[2], size=conds[0], replace=False)
+        #Add those chosen to constraints
+        constrainedfeatures = np.r_[constrainedfeatures,choices]
+    for feature in range(featnum):
+        if feature not in constrainedfeatures:
+            instance[feature] = kernels[feature].resample(size=1)[0][0]
+        else:
+            found = False
+            while not found:
+                resample = kernels[feature].resample(size=1)[0][0]
+                if passes_test(resample, feattests[feature]):
+                    found = True
+            instance[feature] = resample
+    return instance
 
 ###Draw instances
 def draw_instances(number, kernels, constraints):
@@ -42,8 +70,8 @@ def draw_instances(number, kernels, constraints):
         probs = probs/sum(probs)
         testconds = (test[0], probfeats, probs)
         condslist.append(testconds)
-    instances = [draw_instance(kernels, condslist) for i in range(number)]
-    
+    instances = np.array([draw_instance(kernels, condslist, feattests) for i in range(number)])
+    return instances
     ###!TODO: Rem to deal with the case where there are two tests on the same
     ###feature!!!
 
