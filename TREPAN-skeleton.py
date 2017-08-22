@@ -8,6 +8,9 @@ Created on Tue Jul 25 14:52:59 2017
 import numpy as np
 from scipy import stats
 
+
+###SAMPLES DRAWING CODE BEGINS
+
 def passes_test(resample, test):
     """
     Take a value and a simple greater/less than test, and chceks if the test is
@@ -17,7 +20,6 @@ def passes_test(resample, test):
     if (test[1] and resample >= test[0]) or (not test[1] and resample < test[0]):
         passes = True
     return passes
-
 
 def draw_instance(kernels, condslist, feattests):
     """
@@ -102,8 +104,7 @@ def draw_instances(number, kernels, constraints):
     instances = np.array([draw_instance(kernels, probslist, feattests) for i in range(number)])
     return instances
     
-
-def draw_sample(samples, total, significance, constraints):
+def draw_sample(samples, total, significance, constraints, parentsamples):
     """
     A function that takes a set of examples, and draws samples if there are
     fewer than the allowed minimum size for splitting on at a node. (e.g. if
@@ -125,6 +126,10 @@ def draw_sample(samples, total, significance, constraints):
     else:
         allsamples = samples
     return allsamples
+
+###SAMPLE DRAWING CODE ENDS
+
+###TREE BUILDING CODE BEGINS
 
 def passes_mn_test(example, test):
     """
@@ -158,7 +163,6 @@ def passes_mn_tests(example, constraints):
             allpassed = False
         counter += 1
     return allpassed
-    
 
 def create_node(constraints, mntest, passed, parent, samples, oracle):
     """
@@ -179,6 +183,11 @@ def create_node(constraints, mntest, passed, parent, samples, oracle):
     nodedict['predictedclass'] = predictedclass
     fidelity = sum(labels==predictedclass)/sum(reaches)
     nodedict['fidelity'] = fidelity
+    #Mark as leaf if all labels same
+    if len(labels.unique())==1:
+        nodedict['finished'] = True
+    else:
+        nodedict['finished'] = False
     #Add parent
     nodedict['parent'] = parent
     return nodedict
@@ -190,22 +199,77 @@ def expand_node(constraints, samples, nodename, tree, oracle):
     test.
     """
     localsamples = samples[node['reach']]
+    total = 5000
+    significance = 0.05
     newsamples = draw_samples(localsamples, total, significance, constraints)
     labels = [oracle.predict(newsamples[i,:]) for i in range(total)]
     mntest = construct_test(newsamples, labels)
     #Add test to the node
     tree[nodename]['mntest'] = mntest
     #Generate daughter nodes
-    tree[nodename + '0'] = create_node(constraints, mntest, False, node[name], samples)
-    tree[nodename + '1'] = create_node(constraints, mntest, True, node[name], samples)
+    tree[nodename + '0'] = create_node(constraints, mntest, False, nodename, samples)
+    tree[nodename + '1'] = create_node(constraints, mntest, True, nodename, samples)
     tree[nodename]['0daughter'] = nodename+'0'
     tree[nodename]['1daughter'] = nodename+'1'
     tree[nodename]['predictedclass'] = None
+    tree[nodename]['finished'] = True
+
+def create_initial_node(samples, oracle, nodename, tree):
+    """
+    Creates first node in tree.
+    """
+    nodedict = {'constraints': [], 'reach' = 1}
+    total = 5000
+    significance = 0.05
+    newsamples = draw_samples(samples, total, significance, constraints)
+    labels = [oracle.predict(newsamples[i,:]) for i in range(total)]
+    mntest = construct_test(newsamples, labels)
+    nodedict['mntest'] = mntest
+    tree[nodename + '0'] = create_node([], mntest, False, nodename, samples)
+    tree[nodename + '1'] = create_node([], mntest, True, nodename, samples)
+    nodedict['0daughter'] = nodename + '0'
+    nodedict['1daughter'] = nodename + '1'
+    return nodedict
+
+def find_best_node(tree):
+    """Returns the node in a tree that has the best (highest) candidate value
+    for expansion, as defined by reach(N)*(1-fidelity(N)).
+    """
+    bestval = 0
+    for node in tree:
+        if node['fidelity'] == 1 or node['finished']:
+            candidateval = 0
+        else:
+            candidateval = tree[node]['reach']*(1-tree[node]['fidelity'])
+        if candidateval > bestval:
+            bestval = candidateval
+            bestnode = node
+    return bestnode
+
+    
+def build_tree(samples, oracle, size):
+    """
+    Whole tree building process.
+    """
+    tree = {}
+    tree['1'] = create_initial_node(samples, oracle, '1')
+    nodestoexpand = True
+    while (len(tree) < size) and nodestoexpand:
+        #Find best node
+        bestnode = find_best_node(tree)
+        #Expand it
+        expand_node(tree[bestnode][constraints], samples, bestnode, tree, oracle)
+        #Check there are still nodes to expand
+        nodestoexpand = False
+        for node in tree:
+            if not tree[node]['finished']:
+                nodestoexpand = True
+    return tree
+###TREE BUILDING CODE ENDS
 
 
+###MAKING M OF N TEST CODE BEGINS
 
-
-###Making M OF N tests
 def make_candidate_tests(samples, labels):
     """
     A function that should take all features, all samples, and return the
@@ -403,5 +467,8 @@ def construct_test(samples, labels):
                 bestgain = testgain
                 besttest = (test, threshold)
     print('Done.')
-    mofntest = make_mofn_tests(besttest, tests, samples, labels)
+    improvement = 1.1
+    mofntest = make_mofn_tests(besttest, tests, samples, labels, improvement)
     return mofntest
+
+###MAKING M OF N TEST CODE ENDS
