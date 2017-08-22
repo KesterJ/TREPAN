@@ -77,7 +77,6 @@ def draw_instances(number, kernels, constraints):
                 probs = np.append(probs, conditional_prob)
                 probfeats = np.append(probfeats,feature)
                 feattests[feature] = (threshold, greater)
-            print(probs)
             probs = probs/sum(probs)
             testprobs = (m, probfeats, probs)
             probslist.append(testprobs)
@@ -95,18 +94,14 @@ def draw_instances(number, kernels, constraints):
                 probs = np.append(probs, conditional_prob)
                 probfeats = np.append(probfeats,feature)
                 feattests[feature] = (threshold, greater)
-            print(probs)
             probs = probs/sum(probs)
             #We're doing reverse test, so need one more than n-m tests to be
             #passed to make sure m-of-n test is failed
             testprobs = (n+1-m, probfeats, probs)
             probslist.append(testprobs)
-    print(probslist)
-    print(feattests)
     instances = np.array([draw_instance(kernels, probslist, feattests) for i in range(number)])
     return instances
     
-
 
 def draw_sample(samples, total, significance, constraints):
     """
@@ -127,7 +122,88 @@ def draw_sample(samples, total, significance, constraints):
                 kernels[feat] = stats.gaussian_kde(parentsamples[:,feat])
         newsamples = draw_instances(samplesneeded, kernels, constraints)
         allsamples = np.r_['0,2',samples,newsamples]]
-    return newsamples
+    else:
+        allsamples = samples
+    return allsamples
+
+def passes_mn_test(example, test):
+    """
+    Checks if a particular example passes a particular m-of-n test.
+    """
+    testpassed = False
+    counter = 0
+    featurespassed = 0
+    m = test[0]
+    n = len(test[1])
+    while (not testpassed) and counter<n:
+        feature = test[1][counter][0]
+        threshold = test[1][counter][1]
+        greater = = test[1][counter][2]
+        if (greater and example[feature] >= threshold) or ((not greater) and example[feature] < threshold):
+            featurespassed += 1
+        if featurespassed >= m:
+            testpassed = True
+        counter += 1
+    return testpassed
+
+def passes_mn_tests(example, constraints):
+    """
+    Loops over a list of m-of-n tests and checks if all are passed.
+    """
+    allpassed = True
+    counter = 0
+    while allpassed and counter<len(constraints):
+        passed = passes_mn_test(example, (constraints[counter[0]], constraints[counter][1]))
+        if passed != constraints[counter][2]:
+            allpassed = False
+        counter += 1
+    return allpassed
+    
+
+def create_node(constraints, mntest, passed, parent, samples, oracle):
+    """
+    Creates a basic node.
+    """
+    nodedict = {}
+    #Get all constraints
+    allconstraints = np.append(constraints, mntest+(passed))
+    nodedict['constraints'] = allconstraints
+    #Calculate reach
+    reaches = [passes_mn_tests(samples[i,:], constraints) for i in range(samples.shape[0])]
+    reach = sum(reaches)/samples.shape[0]
+    nodedict['reach'] = reach
+    #Calculate fidelity
+    localsamples = samples[reaches]
+    labels = [oracle.predict(localsamples[i,:]) for i in range(sum(reaches))]
+    predictedclass = stats.mode(labels).mode[0]
+    nodedict['predictedclass'] = predictedclass
+    fidelity = sum(labels==predictedclass)/sum(reaches)
+    nodedict['fidelity'] = fidelity
+    #Add parent
+    nodedict['parent'] = parent
+    return nodedict
+    
+def expand_node(constraints, samples, nodename, tree, oracle):
+    """
+    Expands a node (which should have been created earlier as a shell) by
+    generating samples, testing on the oracle and constructing an m-of-n
+    test.
+    """
+    localsamples = samples[node['reach']]
+    newsamples = draw_samples(localsamples, total, significance, constraints)
+    labels = [oracle.predict(newsamples[i,:]) for i in range(total)]
+    mntest = construct_test(newsamples, labels)
+    #Add test to the node
+    tree[nodename]['mntest'] = mntest
+    #Generate daughter nodes
+    tree[nodename + '0'] = create_node(constraints, mntest, False, node[name], samples)
+    tree[nodename + '1'] = create_node(constraints, mntest, True, node[name], samples)
+    tree[nodename]['0daughter'] = nodename+'0'
+    tree[nodename]['1daughter'] = nodename+'1'
+    tree[nodename]['predictedclass'] = None
+
+
+
 
 ###Making M OF N tests
 def make_candidate_tests(samples, labels):

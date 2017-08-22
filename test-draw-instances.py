@@ -77,7 +77,6 @@ def draw_instances(number, kernels, constraints):
                 probs = np.append(probs, conditional_prob)
                 probfeats = np.append(probfeats,feature)
                 feattests[feature] = (threshold, greater)
-            print(probs)
             probs = probs/sum(probs)
             testprobs = (m, probfeats, probs)
             probslist.append(testprobs)
@@ -95,14 +94,11 @@ def draw_instances(number, kernels, constraints):
                 probs = np.append(probs, conditional_prob)
                 probfeats = np.append(probfeats,feature)
                 feattests[feature] = (threshold, greater)
-            print(probs)
             probs = probs/sum(probs)
             #We're doing reverse test, so need one more than n-m tests to be
             #passed to make sure m-of-n test is failed
             testprobs = (n+1-m, probfeats, probs)
             probslist.append(testprobs)
-    print(probslist)
-    print(feattests)
     instances = np.array([draw_instance(kernels, probslist, feattests) for i in range(number)])
     return instances
 
@@ -113,4 +109,4 @@ testkerns = [stats.gaussian_kde(testdata[:,i]) for i in range(5)]
 
 constraints = [(1, [(3, 5, True), (1, 1.5, False)], True), (1, [(0, 2, True), (4, 12, False)], False)]
 
-testinstances = draw_instances(5, testkerns, constraints)
+testinstances = draw_instances(5000, testkerns, constraints)
