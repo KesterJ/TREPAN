@@ -399,18 +399,7 @@ def expand_mofn_test(test, feature, threshold, greater, incrementm):
     Constructs and returns a new m-of-n test using the passed test and 
     other parameters.
     """
-    #Check for feature redundancy
-    for feat in test[1]:
-        if feature==feat[0]:
-            if greater==feat[2]:
-                #Just return the unmodified existing test if we'd add a threshold
-                #with same feature and sign
-                return test
-            else:
-                #Also just return the same if the two tests would overlap
-                if (greater and threshold <= feat[1]) or (not greater and threshold >= feat[1]):
-                    return test
-    #If we didn't find redundancy, actually create the test
+    #Create the test
     if incrementm:
         newm = test[0]+1
     else:
@@ -451,24 +440,28 @@ def make_mofn_tests(besttest, tests, samples, labels, improvement):
         beamchanged = False
         #Loop over the current best m-of-n tests in beam
         for test in beam:
+            #Get features used in the test already
+            existingfeats = [subtest[0] for subtest in test]
             #Loop over the single-features in candidate tests dict
             for feature in tests:
-                #Loop over the thresholds for the feature
-                for threshold in tests[feature]:
-                    #Loop over greater than/lesser than tests
-                    for greater in [True, False]:
-                        #Loop over m+1-of-n+1 and m-of-n+1 tests
-                        for incrementm in [True, False]:
-                            #Add selected feature+threshold to to current test
-                            newtest = expand_mofn_test(test, feature, threshold, greater, incrementm)
-                            #Get info gain and compare it
-                            gain = mofn_info_gain(newtest, samples, labels)
-                            #Compare gains
-                            if gain > improvement*min(currentgains):
-                                #Replace worst in beam if gain better than worst in beam
-                                currentbeam[np.argmin(currentgains)] = newtest
-                                currentgains[np.argmin(currentgains)] = gain
-                                beamchanged = True
+                #Check it hasn't been used in the test already
+                if feature not in existingfeats:
+                    #Loop over the thresholds for the feature
+                    for threshold in tests[feature]:
+                        #Loop over greater than/lesser than tests
+                        for greater in [True, False]:
+                            #Loop over m+1-of-n+1 and m-of-n+1 tests
+                            for incrementm in [True, False]:
+                                #Add selected feature+threshold to to current test
+                                newtest = expand_mofn_test(test, feature, threshold, greater, incrementm)
+                                #Get info gain and compare it
+                                gain = mofn_info_gain(newtest, samples, labels)
+                                #Compare gains
+                                if gain > improvement*min(currentgains):
+                                    #Replace worst in beam if gain better than worst in beam
+                                    currentbeam[np.argmin(currentgains)] = newtest
+                                    currentgains[np.argmin(currentgains)] = gain
+                                    beamchanged = True
         #Set new tests in beam and associated gains
         beam = list(currentbeam)
         beamgains = list(currentgains)
