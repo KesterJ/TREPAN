@@ -23,7 +23,7 @@ def passes_test(resample, test):
         passes = True
     return passes
 
-def draw_instance(kernels, condslist, feattests):
+def draw_instance(kernels, condslist, feattests, singlevalsdict):
     """
     Needs to take a list of kernels and conditional probabilities for m-of-n
     tests, and generate an instance drawn from the kernels that fulfils the
@@ -38,7 +38,9 @@ def draw_instance(kernels, condslist, feattests):
         #Add those chosen to constraints
         constrainedfeatures = np.r_[constrainedfeatures,choices]
     for feature in range(featnum):
-        if feature not in constrainedfeatures:
+        if feature in singlevalsdict:
+            instance[feature] = singlevalsdict[feature]
+        elif feature not in constrainedfeatures:
             instance[feature] = kernels[feature].resample(size=1)[0][0]
         else:
             found = False
@@ -50,7 +52,7 @@ def draw_instance(kernels, condslist, feattests):
     return instance
 
 ###Draw instances
-def draw_instances(number, kernels, constraints):
+def draw_instances(number, kernels, constraints, singlevalsdict):
     """
     Takes a number of samples to draw, a list of constraints (which consists
     of a list of m-of-n tests that should have been satisfied to reach this
@@ -73,14 +75,22 @@ def draw_instances(number, kernels, constraints):
                 feature = feattest[0]
                 threshold = feattest[1]
                 greater = feattest[2]
-                #Get conditional probability of passing test by integrating over kernel
-                if greater:
-                    conditional_prob = kernels[feature].integrate_box_1d(threshold, np.inf)
-                else:
-                    conditional_prob = kernels[feature].integrate_box_1d(-np.inf, threshold)
-                probs = np.append(probs, conditional_prob)
-                probfeats = np.append(probfeats,feature)
-                feattests[feature] = (threshold, greater)
+                if feature in singlevalsdict:
+                    if (greater and singlevalsdict[feature] >=threshold) or ((not greater) and singlevalsdict[feature] < threshold):
+                        #If it's guaranteed to be passed in test, reduce m for other values
+                        #(Implied don't reduce m if not passed in test)
+                        m -= 1
+                else:    
+                    #Get conditional probability of passing test by integrating over kernel
+                    if greater:
+                        conditional_prob = kernels[feature].integrate_box_1d(threshold, np.inf)
+                    else:
+                        conditional_prob = kernels[feature].integrate_box_1d(-np.inf, threshold)
+                    probs = np.append(probs, conditional_prob)
+                    probfeats = np.append(probfeats,feature)
+                    feattests[feature] = (threshold, greater)
+            #Equalise probabilites to sum to 1, alter m in case of single values
+            #and add test to list
             probs = probs/sum(probs)
             testprobs = (m, probfeats, probs)
             probslist.append(testprobs)
@@ -90,20 +100,26 @@ def draw_instances(number, kernels, constraints):
                 feature = feattest[0]
                 threshold = feattest[1]
                 greater = not feattest[2]
-                #Get conditional probability of passing test by integrating over kernel
-                if greater:
-                    conditional_prob = kernels[feature].integrate_box_1d(threshold, np.inf)
+                if feature in singlevalsdict:
+                    if (greater and singlevalsdict[feature] >=threshold) or ((not greater) and singlevalsdict[feature] < threshold):
+                        #If it's guaranteed to be passed in test, reduce m for other values
+                        #(Implied don't reduce m if not passed in test)
+                        m -= 1
                 else:
-                    conditional_prob = kernels[feature].integrate_box_1d(-np.inf, threshold)
-                probs = np.append(probs, conditional_prob)
-                probfeats = np.append(probfeats,feature)
-                feattests[feature] = (threshold, greater)
+                    #Get conditional probability of passing test by integrating over kernel
+                    if greater:
+                        conditional_prob = kernels[feature].integrate_box_1d(threshold, np.inf)
+                    else:
+                        conditional_prob = kernels[feature].integrate_box_1d(-np.inf, threshold)
+                    probs = np.append(probs, conditional_prob)
+                    probfeats = np.append(probfeats,feature)
+                    feattests[feature] = (threshold, greater)
             probs = probs/sum(probs)
             #We're doing reverse test, so need one more than n-m tests to be
             #passed to make sure m-of-n test is failed
             testprobs = (n+1-m, probfeats, probs)
             probslist.append(testprobs)
-    instances = np.array([draw_instance(kernels, probslist, feattests) for i in range(number)])
+    instances = np.array([draw_instance(kernels, probslist, feattests, singlevalsdict) for i in range(number)])
     return instances
     
 def draw_sample(samples, total, significance, constraints, parentsamples):
@@ -112,21 +128,32 @@ def draw_sample(samples, total, significance, constraints, parentsamples):
     fewer than the allowed minimum size for splitting on at a node. (e.g. if
     we want 10,000 examples, and have 9,100, we will draw 900)
     """
+    singlevalsdict = {}
     samplesneeded = total - samples.shape[0]
     numfeats = samples.shape[1]
+    bandwidth = 1/np.sqrt(samples.shape[0])
     print('Making kernels...')
     if samplesneeded > 0:
         kernels = [None for i in range(numfeats)]
         for feat in range(numfeats):
             #Check if distribution for feature is diff from parent node
             #Including Bonferroni correction
-            bandwidth = 1/np.sqrt(samples.shape[0])
             if stats.ks_2samp(samples[:,feat], parentsamples[:,feat])[1] <= significance/numfeats:
-                kernels[feat] = stats.gaussian_kde(samples[:,feat], bw_method=bandwidth)
+                #Check for single values
+                uniques = np.unique(samples[:,feat])
+                if len(uniques)==1:
+                    singlevalsdict[feat] = uniques[0]
+                else:
+                    kernels[feat] = stats.gaussian_kde(samples[:,feat], bw_method=bandwidth)
             else:
-                kernels[feat] = stats.gaussian_kde(parentsamples[:,feat], bw_method=bandwidth)
+                #Same as above, but for parent node instead
+                uniques = np.unique(parentsamples[:,feat])
+                if len(uniques)==1:
+                    singlevalsdict[feat] = uniques[0]
+                else:
+                    kernels[feat] = stats.gaussian_kde(parentsamples[:,feat], bw_method=bandwidth)
         print('Drawing instances...')
-        newsamples = draw_instances(samplesneeded, kernels, constraints)
+        newsamples = draw_instances(samplesneeded, kernels, constraints, singlevalsdict)
         allsamples = np.r_['0,2',samples,newsamples]
     else:
         allsamples = samples
@@ -441,7 +468,7 @@ def make_mofn_tests(besttest, tests, samples, labels, improvement):
         #Loop over the current best m-of-n tests in beam
         for test in beam:
             #Get features used in the test already
-            existingfeats = [subtest[0] for subtest in test]
+            existingfeats = [subtest[0] for subtest in test[1]]
             #Loop over the single-features in candidate tests dict
             for feature in tests:
                 #Check it hasn't been used in the test already
