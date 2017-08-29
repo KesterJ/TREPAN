@@ -509,7 +509,7 @@ def construct_test(samples, labels, alreadyused):
             ###TODO: Write the binary_info_gain call above correctly    
                 bestgain = testgain
                 besttest = (test, threshold)
-    print('Done.')
+    print('Best test is on feature %d, threshold %f'%(besttest[0], besttest[1]))
     improvement = 1.1
     mofntest = make_mofn_tests(besttest, tests, samples, labels, improvement)
     return mofntest
