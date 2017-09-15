@@ -213,11 +213,11 @@ def create_node(constraints, mntest, passed, parent, samples, oracle):
     #Calculate fidelity
     localsamples = samples[reaches]
     labels = [float(oracle.predict(localsamples[i,:].reshape(1,-1))) for i in range(sum(reaches))]
-    if len(stats.mode(labels).mode)>0:
+    if len(stats.mode(labels).mode)==1:
         predictedclass = stats.mode(labels).mode[0]
     else:
         predictedclass = None
-    nodedict['predictedclass'] = predictedclass
+    nodedict['predictedclass'] = int(predictedclass)
     fidelity = sum(labels==predictedclass)/sum(reaches)
     nodedict['fidelity'] = fidelity
     #Mark as leaf if all labels same
@@ -271,6 +271,7 @@ def create_initial_node(samples, oracle, nodename, tree):
     newsamples = draw_sample(samples, total, significance, nodedict['constraints'], samples)
     labels = np.array([float(oracle.predict(newsamples[i,:].reshape(1,-1))) for i in range(newsamples.shape[0])])
     mntest = construct_test(newsamples, labels, [])
+    nodedict['predictedclass'] = None
     nodedict['mntest'] = mntest
     tree[nodename + '0'] = create_node([], mntest, False, nodename, samples, oracle)
     tree[nodename + '1'] = create_node([], mntest, True, nodename, samples, oracle)
@@ -459,11 +460,8 @@ def make_mofn_tests(besttest, tests, samples, labels, improvement):
     currentbeam = list(beam)
     currentgains = list(beamgains)
     beamchanged = True
-    n = 1
     #Set up loop to repeat until beam isn't changed
     while beamchanged:
-        print('Test of size %d...'%n)
-        n = n+1
         beamchanged = False
         #Loop over the current best m-of-n tests in beam
         for test in beam:
